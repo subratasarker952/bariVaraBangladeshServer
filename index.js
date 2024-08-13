@@ -342,7 +342,7 @@ async function run() {
         {
           $set: {
             paymentStatus: "paid",
-            publishStatus: "public",
+            publishStatus: "published",
             paidAt: new Date(),
           },
         }
@@ -361,7 +361,7 @@ async function run() {
         {
           $set: {
             paymentStatus: "due",
-            publishStatus: "hide",
+            publishStatus: "hidden",
             tran_id: "",
             tryToPayAt: new Date(),
           },
