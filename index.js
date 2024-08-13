@@ -21,9 +21,6 @@ app.use(express.json());
 
 // Ensure the 'uploads' directory exists
 const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
 
 // Serve the uploads directory as a static folder
 app.use("/uploads", express.static(uploadsDir));
