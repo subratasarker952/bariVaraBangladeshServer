@@ -375,7 +375,7 @@ async function run() {
         {
           $set: {
             paymentStatus: "due",
-            publishStatus: "hide",
+            publishStatus: "hidden",
             tran_id: "",
             tryToPayAt: new Date(),
           },
