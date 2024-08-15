@@ -278,7 +278,7 @@ async function run() {
     app.patch("/payment/:id", async (req, res) => {
       const property = req.body;
       const id = req.params.id;
-      const tran_id = Date.now();
+      const tran_id = uuid.v4();
 
       const filter = { _id: new ObjectId(id) };
       await propertyCollection.updateOne(filter, {
