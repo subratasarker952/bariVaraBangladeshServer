@@ -72,7 +72,7 @@ const verifyToken = (req, res, next) => {
 
 async function run() {
   try {
-    await client.connect();
+    client.connect();
     const bariVaraDB = client.db("bariVaraDB");
     const propertyCollection = bariVaraDB.collection("propertyCollection");
     const userCollection = bariVaraDB.collection("userCollection");
