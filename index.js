@@ -78,15 +78,23 @@ async function run() {
     const userCollection = bariVaraDB.collection("userCollection");
 
     app.post("/jwt", (req, res) => {
-      const userInfo = req.body;
-      const token = jwt.sign(userInfo, "secret", { expiresIn: "7d" });
-      res.send({ token });
+      try {
+        const userInfo = req.body;
+        const token = jwt.sign(userInfo, "secret", { expiresIn: "7d" });
+        res.send({ token });
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
+      }
     });
 
     app.get("/states", verifyToken, async (req, res) => {
-      const properties = await propertyCollection.estimatedDocumentCount();
-      const users = await userCollection.estimatedDocumentCount();
-      res.send({ properties, users });
+      try {
+        const properties = await propertyCollection.estimatedDocumentCount();
+        const users = await userCollection.estimatedDocumentCount();
+        res.send({ properties, users });
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
+      }
     });
 
     app.post("/imageUpload", upload.array("images"), async (req, res) => {
@@ -103,66 +111,82 @@ async function run() {
 
     // Properties CRUD
     app.get("/properties/email", verifyToken, async (req, res) => {
-      const email = req.query.email;
-      if (!email) {
-        return res.status(400).send({ message: "Please login then try" });
+      try {
+        const email = req.query.email;
+        if (!email) {
+          return res.status(400).send({ message: "Please login then try" });
+        }
+        const query = { owner: email };
+        const result = await propertyCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const query = { owner: email };
-      const result = await propertyCollection.find(query).toArray();
-      res.send(result);
     });
 
     app.get("/properties/:id", async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        return res.status(400).send({ message: "Invalid ID" });
+      try {
+        const id = req.params.id;
+        if (!id) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+        const query = { _id: new ObjectId(id) };
+        const result = await propertyCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const query = { _id: new ObjectId(id) };
-      const result = await propertyCollection.findOne(query);
-      res.send(result);
     });
 
     app.patch("/properties/:id", verifyToken, async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        return res.status(400).send({ message: "Invalid ID" });
+      try {
+        const id = req.params.id;
+        if (!id) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+        const filter = { _id: new ObjectId(id) };
+        const product = req.body;
+        const result = await propertyCollection.updateOne(filter, {
+          $set: { ...product },
+        });
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const filter = { _id: new ObjectId(id) };
-      const product = req.body;
-      const result = await propertyCollection.updateOne(filter, {
-        $set: { ...product },
-      });
-      res.send(result);
     });
 
     app.delete("/properties/:id", verifyToken, async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        return res.status(400).send({ message: "Invalid ID" });
-      }
-      const filter = { _id: new ObjectId(id) };
-      const property = await propertyCollection.findOne(filter);
-      const filepaths = property?.images?.map(
-        (image) => path.join(__dirname, "uploads/") + image.split("/")[4]
-      );
+      try {
+        const id = req.params.id;
+        if (!id) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+        const filter = { _id: new ObjectId(id) };
+        const property = await propertyCollection.findOne(filter);
+        const filepaths = property?.images?.map(
+          (image) => path.join(__dirname, "uploads/") + image.split("/")[4]
+        );
 
-      if (filepaths) {
-        filepaths.forEach((filepath) => {
-          try {
-            fs.unlinkSync(filepath);
-          } catch (err) {}
-        });
+        if (filepaths) {
+          filepaths.forEach((filepath) => {
+            try {
+              fs.unlinkSync(filepath);
+            } catch (err) {}
+          });
+        }
+        const result = await propertyCollection.deleteOne(filter);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const result = await propertyCollection.deleteOne(filter);
-      res.send(result);
     });
 
     app.get("/properties", async (req, res) => {
       try {
         const {
           maxPrice,
-          page = 1,
-          limit = 10,
+          page,
+          limit = 9,
           search,
           division,
           district,
@@ -170,6 +194,7 @@ async function run() {
           postOffice,
           type,
         } = req.query;
+
         let query = {};
         if (search) query.title = { $regex: search, $options: "i" };
         if (division) query.division = division;
@@ -178,12 +203,12 @@ async function run() {
         if (upazila) query.upazila = upazila;
         if (postOffice) query.postOffice = postOffice;
         if (type) query.type = type;
-        
-        
+
         const properties = await propertyCollection
           .find(query)
           .skip((page - 1) * limit)
-          .limit(Number(limit)).toArray()
+          .limit(Number(limit))
+          .toArray();
 
         const totalProperties = await propertyCollection.countDocuments(query);
 
@@ -214,182 +239,229 @@ async function run() {
 
     // Users CRUD
     app.get("/users/get/:id", async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        return res.status(400).send({ message: "Invalid ID" });
+      try {
+        const id = req.params.id;
+        if (!id) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+        const query = { _id: new ObjectId(id) };
+        const result = await userCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const query = { _id: new ObjectId(id) };
-      const result = await userCollection.findOne(query);
-      res.send(result);
     });
 
     app.get("/users/:email", async (req, res) => {
-      const email = req.params.email;
-      if (!email) {
-        return res.status(400).send({ message: "Email not found" });
+      try {
+        const email = req.params.email;
+        if (!email) {
+          return res.status(400).send({ message: "Email not found" });
+        }
+        const query = { email };
+        const result = await userCollection.findOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const query = { email };
-      const result = await userCollection.findOne(query);
-      res.send(result);
     });
 
     app.patch("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        return res.status(400).send({ message: "Invalid ID" });
+      try {
+        const id = req.params.id;
+        if (!id) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+        const filter = { _id: new ObjectId(id) };
+        const newDoc = req.body;
+        const result = await userCollection.updateOne(filter, { $set: newDoc });
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const filter = { _id: new ObjectId(id) };
-      const newDoc = req.body;
-      const result = await userCollection.updateOne(filter, { $set: newDoc });
-      res.send(result);
     });
 
     app.delete("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      if (!id) {
-        return res.status(400).send({ message: "Invalid ID" });
+      try {
+        const id = req.params.id;
+        if (!id) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+        const filter = { _id: new ObjectId(id) };
+        const result = await userCollection.deleteOne(filter);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const filter = { _id: new ObjectId(id) };
-      const result = await userCollection.deleteOne(filter);
-      res.send(result);
     });
 
     app.get("/users", verifyToken, async (req, res) => {
-      const query = {};
-      const result = await userCollection.find(query).toArray();
-      res.send(result);
+      try {
+        const query = {};
+        const result = await userCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
+      }
     });
 
     app.post("/users", async (req, res) => {
-      const user = req.body;
-      if (!user) {
-        return res.status(400).send({ message: "Invalid data" });
+      try {
+        const user = req.body;
+        if (!user) {
+          return res.status(400).send({ message: "Invalid data" });
+        }
+        const query = { email: user.email };
+        const exist = await userCollection.findOne(query);
+        if (exist) {
+          return res.status(400).send({ message: "User already exists" });
+        }
+        const result = await userCollection.insertOne({
+          ...user,
+          role: "user",
+        });
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
-      const query = { email: user.email };
-      const exist = await userCollection.findOne(query);
-      if (exist) {
-        return res.status(400).send({ message: "User already exists" });
-      }
-      const result = await userCollection.insertOne({ ...user, role: "user" });
-      res.send(result);
     });
 
     // Payment Api
     app.patch("/payment/:id", async (req, res) => {
-      const property = req.body;
-      const id = req.params.id;
-      const tran_id = uuid.v4();
+      try {
+        const property = req.body;
+        const id = req.params.id;
+        const tran_id = uuid.v4();
 
-      const filter = { _id: new ObjectId(id) };
-      await propertyCollection.updateOne(filter, {
-        $set: {
-          ...property,
+        const filter = { _id: new ObjectId(id) };
+        await propertyCollection.updateOne(filter, {
+          $set: {
+            ...property,
+            tran_id: tran_id,
+          },
+        });
+
+        const data = {
+          total_amount: property.amount,
+          currency: "BDT",
           tran_id: tran_id,
-        },
-      });
+          success_url: `${process.env.SERVER_URL}/payment/success?tran_id=${tran_id}`,
+          fail_url: `${process.env.SERVER_URL}/payment/fail?tran_id=${tran_id}`,
+          cancel_url: `${process.env.SERVER_URL}/payment/cancel?tran_id=${tran_id}`,
+          ipn_url: `${process.env.SERVER_URL}/payment/ipn`,
+          shipping_method: "Not required",
+          product_name: "Online service",
+          product_category: "Online service",
+          product_profile: "general",
+          cus_name: "customer name",
+          cus_email: "customer email",
+          cus_add1: "customer add1",
+          cus_add2: "customer add2",
+          cus_city: "customer city",
+          cus_state: "customer state",
+          cus_postcode: "customer postcode",
+          cus_country: "customer country",
+          cus_phone: "customer phone",
+          cus_fax: "customer fax",
+          ship_name: "ship name",
+          ship_add1: "ship add1",
+          ship_add2: "ship add2",
+          ship_city: "ship city",
+          ship_state: "ship state",
+          ship_postcode: "ship postcode",
+          ship_country: "ship country",
+          multi_card_name: "mastercard",
+          value_a: "ref001_A",
+          value_b: "ref002_B",
+          value_c: "ref003_C",
+          value_d: "ref004_D",
+        };
 
-      const data = {
-        total_amount: property.amount,
-        currency: "BDT",
-        tran_id: tran_id,
-        success_url: `${process.env.SERVER_URL}/payment/success?tran_id=${tran_id}`,
-        fail_url: `${process.env.SERVER_URL}/payment/fail?tran_id=${tran_id}`,
-        cancel_url: `${process.env.SERVER_URL}/payment/cancel?tran_id=${tran_id}`,
-        ipn_url: `${process.env.SERVER_URL}/payment/ipn`,
-        shipping_method: "Not required",
-        product_name: "Online service",
-        product_category: "Online service",
-        product_profile: "general",
-        cus_name: "customer name",
-        cus_email: "customer email",
-        cus_add1: "customer add1",
-        cus_add2: "customer add2",
-        cus_city: "customer city",
-        cus_state: "customer state",
-        cus_postcode: "customer postcode",
-        cus_country: "customer country",
-        cus_phone: "customer phone",
-        cus_fax: "customer fax",
-        ship_name: "ship name",
-        ship_add1: "ship add1",
-        ship_add2: "ship add2",
-        ship_city: "ship city",
-        ship_state: "ship state",
-        ship_postcode: "ship postcode",
-        ship_country: "ship country",
-        multi_card_name: "mastercard",
-        value_a: "ref001_A",
-        value_b: "ref002_B",
-        value_c: "ref003_C",
-        value_d: "ref004_D",
-      };
-
-      const sslcommer = new SSLCommerzPayment(storeId, storePassword, isLive);
-      let url;
-      await sslcommer.init(data).then((res) => {
-        url = res.GatewayPageURL;
-      });
-      res.send({ url });
+        const sslcommer = new SSLCommerzPayment(storeId, storePassword, isLive);
+        let url;
+        await sslcommer.init(data).then((res) => {
+          url = res.GatewayPageURL;
+        });
+        res.send({ url });
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
+      }
     });
 
     app.post("/payment/success", async (req, res) => {
-      const { tran_id } = req.query;
-      const result = await propertyCollection.updateOne(
-        { tran_id },
-        {
-          $set: {
-            paymentStatus: "paid",
-            publishStatus: "published",
-            paidAt: new Date(),
-          },
-        }
-      );
-      if (result.modifiedCount > 0) {
-        res.redirect(
-          `${process.env.CLIENT_URL}/paymentSuccess?tran_id=${tran_id}`
+      try {
+        const { tran_id } = req.query;
+        const result = await propertyCollection.updateOne(
+          { tran_id },
+          {
+            $set: {
+              paymentStatus: "paid",
+              publishStatus: "published",
+              paidAt: new Date(),
+            },
+          }
         );
+        if (result.modifiedCount > 0) {
+          res.redirect(
+            `${process.env.CLIENT_URL}/paymentSuccess?tran_id=${tran_id}`
+          );
+        }
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
     });
 
     app.post("/payment/fail", async (req, res) => {
-      const { tran_id } = req.query;
-      const result = await propertyCollection.updateOne(
-        { tran_id },
-        {
-          $set: {
-            paymentStatus: "due",
-            publishStatus: "hidden",
-            tran_id: "",
-            tryToPayAt: new Date(),
-          },
+      try {
+        const { tran_id } = req.query;
+        const result = await propertyCollection.updateOne(
+          { tran_id },
+          {
+            $set: {
+              paymentStatus: "due",
+              publishStatus: "hidden",
+              tran_id: "",
+              tryToPayAt: new Date(),
+            },
+          }
+        );
+        if (result.modifiedCount > 0) {
+          res.redirect(`${process.env.CLIENT_URL}/paymentFail`);
         }
-      );
-      if (result.modifiedCount > 0) {
-        res.redirect(`${process.env.CLIENT_URL}/paymentFail`);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
     });
     app.post("/payment/cancel", async (req, res) => {
-      const { tran_id } = req.query;
-      const result = await propertyCollection.updateOne(
-        { tran_id },
-        {
-          $set: {
-            paymentStatus: "due",
-            publishStatus: "hidden",
-            tran_id: "",
-            tryToPayAt: new Date(),
-          },
+      try {
+        const { tran_id } = req.query;
+        const result = await propertyCollection.updateOne(
+          { tran_id },
+          {
+            $set: {
+              paymentStatus: "due",
+              publishStatus: "hidden",
+              tran_id: "",
+              tryToPayAt: new Date(),
+            },
+          }
+        );
+        if (result.modifiedCount > 0) {
+          res.redirect(`${process.env.CLIENT_URL}/paymentCancel`);
         }
-      );
-      if (result.modifiedCount > 0) {
-        res.redirect(`${process.env.CLIENT_URL}/paymentCancel`);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
       }
     });
     app.get("/property/:tran_id", verifyToken, async (req, res) => {
-      const tran_id = req.params.tran_id;
-      const query = { tran_id };
-      const property = await propertyCollection.findOne(query);
-      return res.send(property);
+      try {
+        const tran_id = req.params.tran_id;
+        const query = { tran_id };
+        const property = await propertyCollection.findOne(query);
+        res.send(property);
+      } catch (error) {
+        res.status(500).json({ message: "Server Error" });
+      }
     });
   } finally {
     // Ensures that the client will close when you finish/error
