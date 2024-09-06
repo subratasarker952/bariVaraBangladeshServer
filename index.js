@@ -3,9 +3,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+
 const app = express();
 const port = process.env.PORT || 3000;
 const SSLCommerzPayment = require("sslcommerz-lts");
@@ -19,31 +17,9 @@ const isLive = false;
 app.use(cors());
 app.use(express.json());
 
-// Ensure the 'uploads' directory exists
-const uploadsDir = path.join(__dirname, "uploads");
-
-// Serve the uploads directory as a static folder
-app.use("/uploads", express.static(uploadsDir));
-
 // Define a simple route
 app.get("/", (req, res) => {
   res.send("Hi Developer Server Is Running");
-});
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.fieldname + Date.now() + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({
-  // storage: storage,
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5000000,
-  },
 });
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dtcwl7u.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -95,18 +71,6 @@ async function run() {
         res.send({ properties, users });
       } catch (error) {
         res.status(500).json({ message: "Server Error" });
-      }
-    });
-
-    app.post("/imageUpload", upload.array("images"), async (req, res) => {
-      try {
-        const images = req?.files?.map(
-          (file) => process.env.SERVER_URL + "/uploads/" + file.filename
-        );
-
-        res.status(201).json(images);
-      } catch (error) {
-        res.status(400).json({ error: error.message });
       }
     });
 
@@ -163,19 +127,11 @@ async function run() {
           return res.status(400).send({ message: "Invalid ID" });
         }
         const filter = { _id: new ObjectId(id) };
-        const property = await propertyCollection.findOne(filter);
-        const filepaths = property?.images?.map(
-          (image) => path.join(__dirname, "uploads/") + image.split("/")[4]
-        );
 
-        if (filepaths) {
-          filepaths.forEach((filepath) => {
-            try {
-              fs.unlinkSync(filepath);
-            } catch (err) {}
-          });
+        const resultg = await propertyCollection.deleteOne(filter);
+        if (!result) {
+          return res.status(400).send({ message: "Property not found" });
         }
-        const result = await propertyCollection.deleteOne(filter);
         res.send(result);
       } catch (error) {
         res.status(500).json({ message: "Server Error" });
